@@ -1,15 +1,22 @@
-﻿using Faker;
-using Bogus;
-using System.Text.Json.Nodes;
+﻿using Bogus;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 
+var config = new ConfigurationBuilder().AddJsonFile($"{Environment.CurrentDirectory}\\appsettings.json")
+                                       .Build();
 List<Model> models = new List<Model>();
-string outputLocation = "C:\\KafkaObjects";
 int id = 1;
-var faker = new Faker<Model>().RuleFor(p => p.Id, f => id++).RuleFor(p => p.Name, Faker.NameFaker.FirstName);
-models.AddRange(faker.Generate(10000));
-string json = JsonSerializer.Serialize(models);
+var faker = new Faker<Model>().RuleFor(p => p.Id,
+                                       f => id++)
+                              .RuleFor(p => p.Name,
+                                       Faker.NameFaker.FirstName);
+models.AddRange(faker.Generate(1000));
 
-var f = File.Create($"{outputLocation}\\values.json");
-f.Close();
-File.WriteAllText($"{outputLocation}\\values.json", json);
+string json = JsonSerializer.Serialize(models);
+using (FileStream fs = File.Create(config["OutputFile"]!))
+{
+    using (StreamWriter sw = new StreamWriter(fs))
+    {
+        sw.Write(json);
+    }
+}

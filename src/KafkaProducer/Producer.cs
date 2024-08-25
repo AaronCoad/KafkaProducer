@@ -3,34 +3,39 @@ using System.Runtime;
 using Confluent.Kafka;
 using Confluent.SchemaRegistry;
 using Confluent.SchemaRegistry.Serdes;
+using Microsoft.Extensions.Configuration;
 namespace KafkaProducer;
 
-public class Producer
+public class Producer : IDisposable
 {
     ProducerConfig config { get; set; }
     SchemaRegistryConfig schemaRegistryConfig { get; set; }
     ProducerBuilder<string, Model> producerBuilder { get; set; }
     CachedSchemaRegistryClient cachedSchemaRegistryClient { get; set; }
 
-    public Producer()
+    public Producer(IConfigurationSection configurationSection)
     {
         config = new ProducerConfig()
         {
-            BootstrapServers = "localhost:9092"
+            BootstrapServers = configurationSection["Brokers"]
         };
 
         schemaRegistryConfig = new SchemaRegistryConfig()
         {
-            Url = "localhost:8085"
+            Url = configurationSection["SchemaRegistry"]
         };
 
         cachedSchemaRegistryClient = new CachedSchemaRegistryClient(schemaRegistryConfig);
         var serializer = new JsonSerializer<Model>(cachedSchemaRegistryClient);
-        producerBuilder = new ProducerBuilder<string, Model>(config).SetValueSerializer(serializer).SetErrorHandler((producer, error) => { Console.WriteLine(error); });
+        producerBuilder = new ProducerBuilder<string, Model>(config).SetValueSerializer(serializer)
+                                                                    .SetErrorHandler((producer, error) => { Console.WriteLine(error); });
     }
 
-    public async Task<bool> SendMessage(string topic, string key, Model message)
+    public async Task<bool> SendMessage(string? topic, string key, Model message)
     {
+        if (String.IsNullOrWhiteSpace(topic))
+            throw new ArgumentNullException("Topic cannot be null");
+
         try
         {
             var p = producerBuilder.Build();
@@ -45,5 +50,9 @@ public class Producer
             Console.WriteLine(ex.Message);
             return false;
         }
+    }
+
+    public void Dispose()
+    {
     }
 }

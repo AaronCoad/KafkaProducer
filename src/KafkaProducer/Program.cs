@@ -1,23 +1,22 @@
-﻿using System.Reflection;
-using System.Security.Cryptography.X509Certificates;
-using System.Text.Json;
+﻿using System.Text.Json;
+using Microsoft.Extensions.Configuration;
+using KafkaProducer;
 
-namespace KafkaProducer;
-// See https://aka.ms/new-console-template for more information
+var config = new ConfigurationBuilder().AddJsonFile($"{Environment.CurrentDirectory}\\appsettings.json").Build();
+string content = File.ReadAllText(config["DataSourceFile"]!);
+List<Model>? models = JsonSerializer.Deserialize<List<Model>>(content);
 
-public static class Program
+if (models == null)
 {
-    static string sourceLocation = "C:\\KafkaObjects";
-    static string topic = "names";
-    public static void Main(string[]? args)
+    Console.WriteLine("Unable to generate list");
+    System.Environment.Exit(1);
+}
+
+using (Producer producer = new Producer(config.GetSection("KafkaProducer")))
+{
+    models.ForEach(item =>
     {
-        string content = File.ReadAllText($"{sourceLocation}\\values.json");
-        List<Model> models = JsonSerializer.Deserialize<List<Model>>(content);
-        Producer producer = new Producer();
-        models.ForEach(item =>
-        {
-            var result = producer.SendMessage(topic, item.Id.ToString(), item).Result;
-            Console.WriteLine(result);
-        });
-    }
+        var result = producer.SendMessage(config["Topic"], item.Id.ToString(), item).Result;
+        Console.WriteLine(result);
+    });
 }
